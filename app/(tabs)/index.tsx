@@ -733,22 +733,37 @@ export default function HomeScreen() {
       return (
         <AnimatedTouchableOpacity
           entering={FadeInRight.delay(index * 15).springify()}
-          style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
-          onPress={() => selectionMode ? toggleSelectPath(item.raw_path) : (item.is_dir ? navigateToDir(item.raw_path) : toggleActionSheet(item))}
+          style={[styles.fileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          onPress={() => {
+            if (selectionMode) { toggleSelectPath(item.raw_path); return; }
+            if (item.is_dir) { navigateToDir(item.raw_path); return; }
+            const ext = (item.name.split('.').pop() || '').toLowerCase();
+            const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+            if (imageExts.includes(ext)) { setPreviewUri(getDownloadUrl(item.raw_path)); setPreviewVisible(true); return; }
+            toggleActionSheet(item);
+          }}
           onLongPress={() => handleLongPress(item)}
         >
-          <View style={[styles.gridIconWrap, { backgroundColor: iconBg }]}>
-            {iconElement}
+          <View style={[styles.gridThumbnailWrap, { backgroundColor: iconBg }]}>
+            {isImage ? <Image source={{ uri: getDownloadUrl(item.raw_path) }} style={styles.gridThumbnail} resizeMode="cover" /> : iconElement}
+            <View style={styles.gridBadge}>
+              <ThemedText style={{ fontSize: 11 }}>{item.is_dir ? 'Folder' : (item.name.split('.').pop() || '').toUpperCase()}</ThemedText>
+            </View>
+          </View>
+
+          <View style={styles.fileInfo}>
+            <ThemedText numberOfLines={2} type="defaultSemiBold" style={styles.fileName}>{item.name}</ThemedText>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <ThemedText style={styles.metaText}>{item.is_dir ? 'Folder' : formatSize(item.size)}</ThemedText>
+              <ThemedText style={[styles.metaText, { fontSize: 11 }]}>{item.is_dir ? '' : (new Date((item.mtime || Date.now())).toLocaleDateString())}</ThemedText>
+            </View>
           </View>
 
           {selectionMode && !item.is_dir && selectedPaths.includes(item.raw_path) && (
-            <View style={{ position: 'absolute', right: 12, top: 10, width: 22, height: 22, borderRadius: 11, backgroundColor: theme.tint, justifyContent: 'center', alignItems: 'center' }}>
+            <View style={styles.selectionCheck}>
               <MaterialCommunityIcons name="check" size={14} color="#FFF" />
             </View>
           )}
-
-          <ThemedText numberOfLines={1} style={styles.gridName}>{item.name}</ThemedText>
-          <ThemedText style={styles.metaText}>{item.is_dir ? 'Folder' : formatSize(item.size)}</ThemedText>
         </AnimatedTouchableOpacity>
       );
     }
@@ -758,7 +773,14 @@ export default function HomeScreen() {
       <AnimatedTouchableOpacity
         entering={FadeInRight.delay(index * 20).duration(200)}
         style={[styles.listItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
-        onPress={() => selectionMode ? (item.is_dir ? null : toggleSelectPath(item.raw_path)) : (item.is_dir ? navigateToDir(item.raw_path) : toggleActionSheet(item))}
+        onPress={() => {
+          if (selectionMode) { if (!item.is_dir) toggleSelectPath(item.raw_path); return; }
+          if (item.is_dir) { navigateToDir(item.raw_path); return; }
+          const ext = (item.name.split('.').pop() || '').toLowerCase();
+          const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+          if (imageExts.includes(ext)) { setPreviewUri(getDownloadUrl(item.raw_path)); setPreviewVisible(true); return; }
+          toggleActionSheet(item);
+        }}
         onLongPress={() => handleLongPress(item)}
       >
         <View style={[styles.listIconContainer, { backgroundColor: (icon && (icon.type === 'image' || icon.type === 'component')) ? 'transparent' : theme.background }]}>
@@ -797,21 +819,26 @@ export default function HomeScreen() {
 
         {/* Selection overlay for list items */}
         {selectionMode && !item.is_dir && selectedPaths.includes(item.raw_path) && (
-          <View style={{ position: 'absolute', right: 6, top: 6, width: 20, height: 20, borderRadius: 10, backgroundColor: theme.tint, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={styles.listSelectionCheck}>
             <MaterialCommunityIcons name="check" size={14} color="#FFF" />
           </View>
         )}
 
         <View style={{ flex: 1, paddingHorizontal: 12 }}>
-          <ThemedText type="defaultSemiBold" numberOfLines={1}>{item.name}</ThemedText>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-            <ThemedText style={styles.metaText}>{item.is_dir ? 'Folder' : formatSize(item.size)}</ThemedText>
-            {!item.is_dir && <ThemedText style={styles.metaText}> • {new Date().toLocaleDateString()}</ThemedText>}
+          <ThemedText type="defaultSemiBold" numberOfLines={2} style={styles.fileNameSmall}>{item.name}</ThemedText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <ThemedText style={styles.metaText}>{item.is_dir ? 'Folder' : formatSize(item.size)}</ThemedText>
+              {!item.is_dir && <ThemedText style={styles.metaText}> • {new Date().toLocaleDateString()}</ThemedText>}
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <ThemedText style={[styles.metaText, { marginRight: 8 }]}>{(!item.is_dir && item.owner) ? item.owner : ''}</ThemedText>
+              <TouchableOpacity style={{ padding: 8 }} onPress={() => toggleActionSheet(item)}>
+                <MaterialCommunityIcons name="dots-horizontal" size={20} color={theme.icon} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-        <TouchableOpacity style={{ padding: 8 }} onPress={() => toggleActionSheet(item)}>
-          <MaterialCommunityIcons name="dots-horizontal" size={20} color={theme.icon} />
-        </TouchableOpacity>
       </AnimatedTouchableOpacity>
     );
   };
@@ -1287,9 +1314,21 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   gridIconWrap: { width: 64, height: 64, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10, overflow: 'hidden' },
-  gridThumbnail: { width: '100%', height: '100%', backgroundColor: "transparent" },
-  gridName: { fontSize: 13, fontWeight: '600', textAlign: 'center', marginBottom: 4 },
-  metaText: { fontSize: 11, opacity: 0.5 },
+
+
+  // New card styles
+  fileCard: { flex: 1, borderRadius: 12, borderWidth: 1, padding: 10, minHeight: 160, overflow: 'hidden', marginBottom: 6 },
+  gridThumbnailWrap: { width: '100%', aspectRatio: 1.4, borderRadius: 10, overflow: 'hidden', marginBottom: 10, justifyContent: 'center', alignItems: 'center' },
+  gridThumbnail: { width: '100%', height: '100%', backgroundColor: 'transparent' },
+  gridBadge: { position: 'absolute', left: 8, top: 8, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: '#00000055' },
+  fileInfo: { paddingTop: 4, paddingHorizontal: 2 },
+  fileName: { fontSize: 13, fontWeight: '700' },
+  selectionCheck: { position: 'absolute', right: 10, top: 10, width: 26, height: 26, borderRadius: 13, backgroundColor: '#0a7ea4', justifyContent: 'center', alignItems: 'center' },
+
+  // List improvements
+  listSelectionCheck: { position: 'absolute', right: 6, top: 6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#0a7ea4', justifyContent: 'center', alignItems: 'center' },
+  fileNameSmall: { fontSize: 14, fontWeight: '700' },
+  metaText: { fontSize: 11, opacity: 0.65 },
   listThumbnail: { width: '100%', height: '100%', backgroundColor: "transparent" },
 
   // Floating Elements
