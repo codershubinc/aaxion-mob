@@ -33,11 +33,11 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Mocks for components if you don't have them, replace with your actual imports
+import ConfirmModal from '@/components/ConfirmModal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import ConfirmModal from '@/components/ConfirmModal';
 import config, { getApiBaseUrl, setApiBaseUrl, testApiBaseUrl } from '@/utils/config';
 import { reportError } from '@/utils/error-handler';
 import { createFile, createFolder, deleteFile, fetchFileList, getDownloadUrl, getSystemStorage, uploadFile } from '@/utils/file-fetcher';
@@ -255,25 +255,25 @@ export default function HomeScreen() {
 
   const deleteSelected = async () => {
     if (selectedPaths.length === 0) return;
-const confirmed = await showConfirm({ title: `Delete ${selectedPaths.length} file(s)?`, message: `This will permanently delete ${selectedPaths.length} file(s).`, confirmLabel: 'Delete', cancelLabel: 'Cancel', destructive: true });
-      if (!confirmed) return;
-      try {
-        setDeleting(true);
-        // Delete sequentially to avoid overwhelming server, but could use Promise.all
-        for (const p of selectedPaths) {
-          await deleteFile(p);
-        }
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        clearSelection();
-        fetchFiles(currentDir);
-      } catch (err) {
-        console.error('Batch delete failed', err);
-        Alert.alert('Error', 'Failed to delete selected files');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      } finally {
-        setDeleting(false);
+    const confirmed = await showConfirm({ title: `Delete ${selectedPaths.length} file(s)?`, message: `This will permanently delete ${selectedPaths.length} file(s).`, confirmLabel: 'Delete', cancelLabel: 'Cancel', destructive: true });
+    if (!confirmed) return;
+    try {
+      setDeleting(true);
+      // Delete sequentially to avoid overwhelming server, but could use Promise.all
+      for (const p of selectedPaths) {
+        await deleteFile(p);
       }
-    };
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      clearSelection();
+      fetchFiles(currentDir);
+    } catch (err) {
+      console.error('Batch delete failed', err);
+      Alert.alert('Error', 'Failed to delete selected files');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const fetchFiles = useCallback(async (dir: string, isRefresh = false) => {
     try {
