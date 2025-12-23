@@ -1,3 +1,5 @@
+import MovieFolder from '@/components/icons/MovieFolder';
+import TempFolder from '@/components/icons/TempFolder';
 import { Colors } from '@/constants/theme';
 
 export const formatSize = (size: number) => {
@@ -22,8 +24,10 @@ export const getFileIcon = (item: any, colorScheme: 'light' | 'dark') => {
         if (fileName.includes('music') || fileName.includes('audio')) return { base: "folder", overlay: "music", color: "#10B981", type: 'mc-composite' };
         // Nature / park / forest folders use a tree/leaf overlay
         if (fileName.includes('nature') || fileName.includes('forest') || fileName.includes('park') || fileName.includes('tree') || fileName.includes('landscape')) return { base: "folder", overlay: "pine-tree", color: "#34D399", type: 'mc-composite' };
-        // Video / movie folders use generic red folder
-        if (fileName.includes('movie') || fileName.includes('video')) return { name: "folder", color: "#EF4444", type: 'mc' };
+        // Temp / tmp folders show a special react component icon
+        if (fileName.includes('temp') || fileName.includes('tmp')) return { type: 'component', Component: TempFolder };
+        // Video / movie folders use a component icon with an optional check overlay
+        if (fileName.includes('movie') || fileName.includes('video')) return { type: 'component', Component: MovieFolder, overlayImage: require('../assets/images/check.svg') };
         if (fileName.includes('picture') || fileName.includes('photo') || fileName.includes('image')) return { name: "folder-image", color: "#8B5CF6", type: 'mc' };
         if (fileName.includes('doc')) return { name: "folder-text", color: "#64748B", type: 'mc' };
         if (fileName.includes('code') || fileName.includes('dev')) return { name: "folder-zip", color: "#F59E0B", type: 'mc' };
