@@ -47,9 +47,9 @@ export function useFileNavigation(initialPath: string = '/') {
     const parts = currentPath.split('/').filter(Boolean);
     if (parts.length > 0) {
       parts.pop();
-      const parentPath = '/' + parts.join('/');
-      navigateTo(parentPath || '/');
-      return parentPath || '/';
+      const parentPath = parts.length > 0 ? '/' + parts.join('/') : '/';
+      navigateTo(parentPath);
+      return parentPath;
     }
     return null;
   }, [currentPath, navigateTo]);
