@@ -14,25 +14,27 @@ export function useFileNavigation(initialPath: string = '/') {
   }, []);
 
   const goBack = useCallback(() => {
-    setState(prev => {
-      if (prev.currentIndex > 0) {
-        return { ...prev, currentIndex: prev.currentIndex - 1 };
-      }
-      return prev;
-    });
-    return state.currentIndex > 0 ? state.pathHistory[state.currentIndex - 1] : null;
+    if (state.currentIndex > 0) {
+      const newIndex = state.currentIndex - 1;
+      setState(prev => ({
+        ...prev,
+        currentIndex: newIndex,
+      }));
+      return state.pathHistory[newIndex];
+    }
+    return null;
   }, [state.currentIndex, state.pathHistory]);
 
   const goForward = useCallback(() => {
-    setState(prev => {
-      if (prev.currentIndex < prev.pathHistory.length - 1) {
-        return { ...prev, currentIndex: prev.currentIndex + 1 };
-      }
-      return prev;
-    });
-    return state.currentIndex < state.pathHistory.length - 1
-      ? state.pathHistory[state.currentIndex + 1]
-      : null;
+    if (state.currentIndex < state.pathHistory.length - 1) {
+      const newIndex = state.currentIndex + 1;
+      setState(prev => ({
+        ...prev,
+        currentIndex: newIndex,
+      }));
+      return state.pathHistory[newIndex];
+    }
+    return null;
   }, [state.currentIndex, state.pathHistory]);
 
   const canGoBack = state.currentIndex > 0;
