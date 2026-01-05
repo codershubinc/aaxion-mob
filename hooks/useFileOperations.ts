@@ -22,8 +22,8 @@ export function useFileOperations() {
   }, []);
 
   const uploadNewFile = useCallback(async (
-    file: { uri: string; name: string; type: string },
     destination: string,
+    file: { uri: string; name: string; type: string },
     onProgress?: (info: { progress: number; bytesSent: number; totalBytes: number; timestamp: number }) => void,
     onCancelRegister?: (cancelFn: () => void) => void
   ) => {
