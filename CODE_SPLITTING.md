@@ -52,7 +52,6 @@ function FileExplorer() {
 **Responsibilities:**
 - Creating folders
 - Deleting files/folders
-- Renaming files/folders
 - Uploading files
 
 **Usage:**
@@ -97,7 +96,7 @@ function NavigationBar() {
       <Button disabled={!canGoBack} onPress={goBack}>Back</Button>
       <Text>{currentPath}</Text>
       <Button disabled={!canGoForward} onPress={goForward}>Forward</Button>
-      <Button onPress={() => goToParent(currentPath)}>Up</Button>
+      <Button onPress={goToParent}>Up</Button>
     </View>
   );
 }

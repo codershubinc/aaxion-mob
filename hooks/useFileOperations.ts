@@ -21,16 +21,6 @@ export function useFileOperations() {
     }
   }, []);
 
-  const renameFile = useCallback(async (oldPath: string, newName: string) => {
-    try {
-      // Rename is typically implemented as a server-side operation
-      // For now, this is a placeholder that would need a dedicated API endpoint
-      throw new Error('Rename operation not yet implemented');
-    } catch (err) {
-      throw err instanceof Error ? err : new Error('Failed to rename file');
-    }
-  }, []);
-
   const uploadNewFile = useCallback(async (
     file: { uri: string; name: string; type: string },
     destination: string,
@@ -48,7 +38,6 @@ export function useFileOperations() {
   return {
     createFolder: createNewFolder,
     deleteFile: deleteFileOrFolder,
-    renameFile,
     uploadFile: uploadNewFile,
   };
 }

@@ -1,39 +1,45 @@
 import { useState, useCallback } from 'react';
 
 export function useFileNavigation(initialPath: string = '/') {
-  const [pathHistory, setPathHistory] = useState<string[]>([initialPath]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [state, setState] = useState({
+    pathHistory: [initialPath],
+    currentIndex: 0,
+  });
 
   const navigateTo = useCallback((path: string) => {
-    setPathHistory(prev => {
-      // Remove any forward history when navigating to a new path
-      const newHistory = prev.slice(0, currentIndex + 1);
-      return [...newHistory, path];
-    });
-    setCurrentIndex(prev => prev + 1);
-  }, [currentIndex]);
+    setState(prev => ({
+      pathHistory: [...prev.pathHistory.slice(0, prev.currentIndex + 1), path],
+      currentIndex: prev.currentIndex + 1,
+    }));
+  }, []);
 
   const goBack = useCallback(() => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-      return pathHistory[currentIndex - 1];
-    }
-    return null;
-  }, [currentIndex, pathHistory]);
+    setState(prev => {
+      if (prev.currentIndex > 0) {
+        return { ...prev, currentIndex: prev.currentIndex - 1 };
+      }
+      return prev;
+    });
+    return state.currentIndex > 0 ? state.pathHistory[state.currentIndex - 1] : null;
+  }, [state.currentIndex, state.pathHistory]);
 
   const goForward = useCallback(() => {
-    if (currentIndex < pathHistory.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      return pathHistory[currentIndex + 1];
-    }
-    return null;
-  }, [currentIndex, pathHistory]);
+    setState(prev => {
+      if (prev.currentIndex < prev.pathHistory.length - 1) {
+        return { ...prev, currentIndex: prev.currentIndex + 1 };
+      }
+      return prev;
+    });
+    return state.currentIndex < state.pathHistory.length - 1
+      ? state.pathHistory[state.currentIndex + 1]
+      : null;
+  }, [state.currentIndex, state.pathHistory]);
 
-  const canGoBack = currentIndex > 0;
-  const canGoForward = currentIndex < pathHistory.length - 1;
-  const currentPath = pathHistory[currentIndex] || initialPath;
+  const canGoBack = state.currentIndex > 0;
+  const canGoForward = state.currentIndex < state.pathHistory.length - 1;
+  const currentPath = state.pathHistory[state.currentIndex] || initialPath;
 
-  const goToParent = useCallback((currentPath: string) => {
+  const goToParent = useCallback(() => {
     const parts = currentPath.split('/').filter(Boolean);
     if (parts.length > 0) {
       parts.pop();
@@ -42,12 +48,12 @@ export function useFileNavigation(initialPath: string = '/') {
       return parentPath || '/';
     }
     return null;
-  }, [navigateTo]);
+  }, [currentPath, navigateTo]);
 
   return {
-    pathHistory,
+    pathHistory: state.pathHistory,
     currentPath,
-    currentIndex,
+    currentIndex: state.currentIndex,
     navigateTo,
     goBack,
     goForward,
