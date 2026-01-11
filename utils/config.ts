@@ -59,16 +59,24 @@ export const setApiBaseUrl = async (url: string) => {
     // }
 };
 
-export const testApiBaseUrl = async (url: string, timeoutMs = 5000) => {
+export type TestResult = { ok: boolean; status?: number; error?: string };
+
+export const testApiBaseUrl = async (url: string, timeoutMs = 5000): Promise<TestResult> => {
     try {
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
         const id = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
-        const testUrl = url.endsWith('/') ? `${url}api/files/storage/system` : `${url}/api/files/storage/system`;
+        const testUrl = url.endsWith('/') ? `${url}api/system/get-root-path` : `${url}/api/system/get-root-path`;
         const res = await fetch(testUrl, { method: 'GET', signal: controller ? (controller.signal as any) : undefined });
         if (id) clearTimeout(id);
-        return res.ok;
-    } catch {
-        return false;
+        if (res.ok) return { ok: true, status: res.status };
+        return { ok: false, status: res.status, error: res.statusText };
+    } catch (err: any) {
+        // Detect abort timeout
+        if (err && typeof err.name === 'string' && err.name === 'AbortError') {
+            return { ok: false, error: `Timeout after ${timeoutMs}ms` };
+        }
+        // Generic network error
+        return { ok: false, error: String(err) };
     }
 };
 

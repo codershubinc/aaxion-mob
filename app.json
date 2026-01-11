@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "aaxion-mob",
+    "name": "aaxion",
     "slug": "aaxion-mob",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icons/Gemini_Generated_Image_hpml0shpml0shpml-removebg-preview.png",
-    "scheme": "aaxionmob",
+    "scheme": "aaxion",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.aaxionmob"
+      "bundleIdentifier": "com.anonymous.aaxion"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.aaxionmob",
+      "package": "com.codershubinc.aaxion",
       "usesCleartextTraffic": true
     },
     "web": {
@@ -39,6 +39,14 @@
           "backgroundColor": "#ffffff",
           "dark": {
             "backgroundColor": "#000000"
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
           }
         }
       ]

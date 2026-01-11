@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+
 import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
@@ -43,6 +44,9 @@ import { reportError } from '@/utils/error-handler';
 import { createFile, createFolder, deleteFile, fetchFileList, getDownloadUrl, getSystemStorage, uploadFile } from '@/utils/file-fetcher';
 import { formatSize, getDirName, getFileIcon, sortFiles } from '@/utils/file-utils';
 
+// Folders considered important on the root home view (case-sensitive match against server response names)
+const IMPORTANT_HOME_FOLDERS = ['aaxion', 'Downloads', 'Documents', 'Pictures', 'Music', 'Videos', 'Movies', 'Temp', 'Downloads'];
+
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function HomeScreen() {
@@ -72,6 +76,10 @@ export default function HomeScreen() {
   const [storageInfo, setStorageInfo] = useState<any | null>(null);
   const [storageLoading, setStorageLoading] = useState<boolean>(false);
   const [storageError, setStorageError] = useState<any>(null);
+
+  // Server root path (fetched from GET /api/system/get-root-path)
+  const [serverRoot, setServerRoot] = useState<string>('/home/swap');
+  const homeDir = useMemo(() => `${serverRoot.replace(/\/$/, '')}/`, [serverRoot]);
 
   // Upload State
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -113,8 +121,11 @@ export default function HomeScreen() {
   const [gridView, setGridView] = useState(false);
   const [activeTab, setActiveTab] = useState<'files' | 'photos' | 'folders'>('files');
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentDir, setCurrentDir] = useState("/home/swap/aaxion/");
+  const [currentDir, setCurrentDir] = useState(homeDir);
   const [history, setHistory] = useState<string[]>([]);
+
+  // Home view filter: show only important folders vs show all
+  const [homeViewMode, setHomeViewMode] = useState<'important' | 'all'>('important');
 
   // Navigation / Drawer State
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -162,9 +173,16 @@ export default function HomeScreen() {
   // Filter Files
   const filteredFiles = useMemo(() => {
     let result = files;
+
+    // When at server root (home) and in 'important' mode, only show a curated set of folders
+    if ((currentDir === homeDir) && homeViewMode === 'important') {
+      result = result.filter(f => f.is_dir && IMPORTANT_HOME_FOLDERS.includes((f.name || '').toString()));
+    }
+
     if (searchQuery) {
       result = result.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
+
     const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'];
 
     if (activeTab === 'photos') {
@@ -174,7 +192,7 @@ export default function HomeScreen() {
       return result.filter(f => f.is_dir);
     }
     return result;
-  }, [files, searchQuery, activeTab]);
+  }, [files, searchQuery, activeTab, homeViewMode, currentDir, homeDir]);
 
   // --- Animations ---
 
@@ -285,7 +303,7 @@ export default function HomeScreen() {
       console.error(error);
       // Show global error with retry
       try {
-        reportError(error, `Failed to fetch files for "${dir}"`, { retry: () => fetchFiles(dir, isRefresh) });
+        reportError(error, `Failed to fetch files for "${dir}"`);
       } catch {
         // ignore
       }
@@ -307,7 +325,7 @@ export default function HomeScreen() {
       const prev = history[history.length - 1];
       setHistory(h => h.slice(0, -1));
       setCurrentDir(prev);
-    } else if (currentDir !== "/home/swap/aaxion/") {
+    } else if (currentDir !== homeDir) {
       Haptics.selectionAsync();
       const parts = currentDir.split('/').filter(Boolean);
       parts.pop();
@@ -315,7 +333,7 @@ export default function HomeScreen() {
       setCurrentDir(parent);
     }
     setSearchQuery("");
-  }, [history, currentDir]);
+  }, [history, currentDir, homeDir]);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -335,42 +353,126 @@ export default function HomeScreen() {
   }, [drawerOpen, selectionMode, promptVisible, history, currentDir, goBack, toggleDrawer]);
 
   // Fetch system storage info
-  // Adds a simple rate-limit to avoid repeated automatic retries. Pass force=true to bypass the limiter.
-  const lastStorageFetchRef = useRef<number | null>(null);
-  const fetchStorage = useCallback(async (mount: string = '/', force = false) => {
-    const now = Date.now();
-    const MIN_INTERVAL = 10_000; // 10 seconds minimum between automatic attempts
-    if (!force && lastStorageFetchRef.current && (now - lastStorageFetchRef.current) < MIN_INTERVAL) {
-      // Skip frequent retry attempt
+  // Try once automatically on mount; if it fails we'll show an offline notice and let the user retry manually.
+  const [showOfflineNotice, setShowOfflineNotice] = useState<boolean>(false);
+  const autoStorageAttemptedRef = useRef(false);
+
+  // Only attempt storage fetch automatically once on mount. After that, automatic retries are disabled.
+  const storageInFlightRef = useRef(false);
+  const storagePromiseRef = useRef<Promise<void> | null>(null);
+
+  // Debug traces for fetchStorage to help find unexpected callers (useEffect or others)
+  const fetchStorageTraceRef = useRef<{ ts: number; stack: string; userInitiated: boolean; force: boolean }[]>([]);
+  // Dev-only overlay state
+  const [debugOverlayVisible, setDebugOverlayVisible] = useState(false);
+
+  const copyFetchTracesToClipboard = async () => {
+    try {
+      const text = fetchStorageTraceRef.current.map(t => `${new Date(t.ts).toISOString()} (user:${t.userInitiated} force:${t.force})\n${t.stack}\n`).join('\n---\n');
+      if (typeof navigator !== 'undefined' && (navigator as any).clipboard && (navigator as any).clipboard.writeText) {
+        await (navigator as any).clipboard.writeText(text);
+        Alert.alert('Copied', 'Traces copied to clipboard');
+        return;
+      }
+    } catch {
+      // fallthrough
+    }
+    Alert.alert('Notice', 'Copy to clipboard is not available on this platform');
+  };
+
+  const fetchStorage = useCallback(async (mount: string = '/', force = false, userInitiated = false) => {
+    // Record a short call trace (keeps last 10)
+    try {
+      const stack = (new Error()).stack || '';
+      fetchStorageTraceRef.current.unshift({ ts: Date.now(), stack: stack.split('\n').slice(2, 10).join('\n'), userInitiated, force });
+      if (fetchStorageTraceRef.current.length > 10) fetchStorageTraceRef.current.pop();
+
+      // If there are more than 3 calls in the last 8s that are not user-initiated, log a warning with stacks
+      const now = Date.now();
+      const recent = fetchStorageTraceRef.current.filter(t => (now - t.ts) < 8_000 && !t.userInitiated);
+      if (recent.length > 3) {
+        console.warn('[fetchStorage] detected frequent recent automatic calls:', recent.length, 'stacks:');
+        recent.slice(0, 6).forEach((r, i) => console.warn(`caller[${i}] (user:${r.userInitiated} force:${r.force})\n${r.stack}`));
+      }
+    } catch {
+      // ignore instrumentation errors
+    }
+
+    // If this is not a user-initiated request and we've already attempted automatically, skip entirely.
+    if (!force && autoStorageAttemptedRef.current && !userInitiated) return;
+
+    // Mark that we've attempted automatically if this was an automatic call (prevents future automatic calls)
+    if (!userInitiated) autoStorageAttemptedRef.current = true;
+
+    // If there's already an in-flight fetch, allow user-initiated callers to wait on it; otherwise ignore overlapping auto calls
+    if (storageInFlightRef.current) {
+      if (userInitiated && storagePromiseRef.current) {
+        await storagePromiseRef.current;
+        return;
+      }
       return;
     }
-    lastStorageFetchRef.current = now;
 
-    try {
-      setStorageLoading(true);
-      setStorageError(null);
-      const info = await getSystemStorage(mount);
-      // Normalize: some APIs return { data: { ... } }, others return the object directly
-      const normalized = info && typeof info === 'object' && 'data' in info ? (info as any).data : info;
-      setStorageInfo(normalized ?? null);
-    } catch (err) {
-      console.error('Failed to fetch storage info:', err);
-      setStorageError(err);
-      setStorageInfo(null);
+    storageInFlightRef.current = true;
+    const p = (async () => {
       try {
-        reportError(err, `Failed to fetch system storage for mount "${mount}"`, { retry: () => fetchStorage(mount, true) });
-      } catch {
-        // ignore
+        setStorageLoading(true);
+        setStorageError(null);
+        const info = await getSystemStorage(mount, { force, userInitiated });
+        const normalized = info && typeof info === 'object' && 'data' in info ? (info as any).data : info;
+        setStorageInfo(normalized ?? null);
+        setShowOfflineNotice(false);
+      } catch (err) {
+        console.error('Failed to fetch storage info:', err);
+        setStorageError(err);
+        setStorageInfo(null);
+        setShowOfflineNotice(true);
+        try {
+          reportError(err, `Failed to fetch system storage for mount "${mount}"`, { retry: () => fetchStorage(mount, true, true) });
+        } catch {
+          // ignore
+        }
+      } finally {
+        setStorageLoading(false);
+        storageInFlightRef.current = false;
+        storagePromiseRef.current = null;
       }
-    } finally {
-      setStorageLoading(false);
-    }
+    })();
+
+    storagePromiseRef.current = p;
+    return p;
   }, []);
 
   useEffect(() => {
-    // Load once on mount (force bypass rate limiter)
+    // Load once on mount (force bypass auto-attempt guard)
     fetchStorage('/', true);
   }, [fetchStorage]);
+
+  // If storageInfo contains a server-provided root, use it
+  useEffect(() => {
+    try {
+      if (storageInfo && typeof storageInfo === 'object') {
+        const root = (storageInfo as any).root_path ?? (storageInfo as any).root ?? null;
+        if (root && root !== serverRoot) {
+          setServerRoot(root);
+        }
+      }
+    } catch { /* ignore */ }
+  }, [storageInfo, serverRoot]);
+
+  // When serverRoot changes, update currentDir if we were still on the previous home
+  const prevRootRef = useRef(serverRoot);
+  useEffect(() => {
+    const prev = prevRootRef.current;
+    const prevHome = `${prev.replace(/\/$/, '')}/`;
+    const newHome = `${serverRoot.replace(/\/$/, '')}/`;
+    // Only change the currentDir automatically if the user is currently at the previous root
+    // (or if currentDir is empty). Do NOT override when the user is inside a subfolder.
+    if (!currentDir || currentDir === prevHome) {
+      setCurrentDir(newHome);
+    }
+    prevRootRef.current = serverRoot;
+  }, [serverRoot, currentDir]);
 
   // Safe derived storage numbers for rendering
   const storageTotal = storageInfo ? Number(storageInfo.total_bytes ?? storageInfo.total ?? 0) : 0;
@@ -392,22 +494,62 @@ export default function HomeScreen() {
     }
   }, [currentDir, fetchFiles]);
 
-  const navigateToDir = (path: string) => {
+  const navigateToDir = async (path: string) => {
     Haptics.selectionAsync();
     const newPath = path.endsWith('/') ? path : path + "/";
-    setHistory(prev => [...prev, currentDir]);
-    setCurrentDir(newPath);
-    setSearchQuery("");
+
+    // Try to fetch the directory contents before committing navigation.
+    // If it fails (e.g., "no such file or directory"), show a helpful alert and offer to create it.
+    try {
+      setLoading(true);
+      const data = await fetchFileList(newPath);
+      setFiles(sortFiles(data));
+      setHistory(prev => [...prev, currentDir]);
+      setCurrentDir(newPath);
+      setSearchQuery("");
+    } catch (err: any) {
+      console.error('Failed to open directory', err);
+      const message = (err && err.message) ? err.message : String(err);
+      Alert.alert(
+        'Cannot open folder',
+        message,
+        [
+          { text: 'OK' },
+          {
+            text: 'Create',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                await createFolder(newPath);
+                // After creating, fetch and navigate
+                const data = await fetchFileList(newPath);
+                setFiles(sortFiles(data));
+                setHistory(prev => [...prev, currentDir]);
+                setCurrentDir(newPath);
+                setSearchQuery("");
+              } catch (e) {
+                console.error('Failed to create folder', e);
+                Alert.alert('Error', 'Failed to create folder');
+              } finally {
+                setLoading(false);
+              }
+            }
+          }
+        ],
+        { cancelable: true }
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
 
 
   const goHome = () => {
-    if (currentDir === "/home/swap/aaxion/") return;
+    if (currentDir === homeDir) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setHistory(prev => [...prev, currentDir]);
-    setCurrentDir("/home/swap/aaxion/");
-    setSearchQuery("");
+    // Use navigateToDir so we validate the root before moving (and populate files)
+    navigateToDir(homeDir);
   };
 
   // --- Upload Logic (Condensed for brevity, same logic as before) ---
@@ -415,7 +557,8 @@ export default function HomeScreen() {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
-        copyToCacheDirectory: true,
+        // On web we can avoid copying to cache (returns a File object in `asset.file`)
+        copyToCacheDirectory: Platform.OS !== 'web',
         multiple: true,
       });
 
@@ -449,6 +592,8 @@ export default function HomeScreen() {
             uri: file.uri,
             name: file.name,
             type: file.mimeType || 'application/octet-stream',
+            // On Web, DocumentPicker provides `file` (Blob/File). Pass it through so web upload uses it directly.
+            ...(file.file ? { file: (file as any).file } : {}),
           }, (info) => {
             // info: { progress, bytesSent, totalBytes, timestamp }
             setUploadProgress(info.progress);
@@ -606,17 +751,17 @@ export default function HomeScreen() {
 
           <ScrollView style={styles.drawerContent} contentContainerStyle={{ padding: 12 }}>
             <ThemedText style={styles.sectionHeader}>LOCATIONS</ThemedText>
-            <TouchableOpacity style={[styles.drawerItem, currentDir.includes('/aaxion/') && !currentDir.includes('Downloads') && !currentDir.includes('Documents') && styles.drawerItemActive, { backgroundColor: currentDir === '/home/swap/aaxion/' ? theme.tint + '15' : 'transparent' }]} onPress={() => { goHome(); if (!SHOW_SIDEBAR_PERMANENTLY) toggleDrawer(); }}>
-              <MaterialCommunityIcons name="home-variant-outline" size={22} color={currentDir === '/home/swap/aaxion/' ? theme.tint : theme.icon} />
-              <ThemedText style={[styles.drawerItemText, currentDir === '/home/swap/aaxion/' && { color: theme.tint, fontWeight: '700' }]}>Home</ThemedText>
+            <TouchableOpacity style={[styles.drawerItem, currentDir === homeDir && styles.drawerItemActive, { backgroundColor: currentDir === homeDir ? theme.tint + '15' : 'transparent' }]} onPress={() => { goHome(); if (!SHOW_SIDEBAR_PERMANENTLY) toggleDrawer(); }}>
+              <MaterialCommunityIcons name="home-variant-outline" size={22} color={currentDir === homeDir ? theme.tint : theme.icon} />
+              <ThemedText style={[styles.drawerItemText, currentDir === homeDir && { color: theme.tint, fontWeight: '700' }]}>Home</ThemedText>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { navigateToDir("/home/swap/aaxion/Downloads/"); if (!SHOW_SIDEBAR_PERMANENTLY) toggleDrawer(); }}>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { navigateToDir(homeDir + "Downloads/"); if (!SHOW_SIDEBAR_PERMANENTLY) toggleDrawer(); }}>
               <MaterialCommunityIcons name="download-outline" size={22} color={theme.icon} />
               <ThemedText style={styles.drawerItemText}>Downloads</ThemedText>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { navigateToDir("/home/swap/aaxion/Documents/"); if (!SHOW_SIDEBAR_PERMANENTLY) toggleDrawer(); }}>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { navigateToDir(homeDir + "Documents/"); if (!SHOW_SIDEBAR_PERMANENTLY) toggleDrawer(); }}>
               <MaterialCommunityIcons name="file-document-outline" size={22} color={theme.icon} />
               <ThemedText style={styles.drawerItemText}>Documents</ThemedText>
             </TouchableOpacity>
@@ -642,7 +787,7 @@ export default function HomeScreen() {
               <View style={{ alignItems: 'center' }}>
                 <ThemedText style={[styles.storageText, { marginBottom: 8, textAlign: 'center' }]}>Failed to load storage</ThemedText>
                 <TouchableOpacity
-                  onPress={() => fetchStorage('/', true)}
+                  onPress={() => { setShowOfflineNotice(true); fetchStorage('/', true, true); }}
                   style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface }}
                   accessibilityLabel="Retry loading storage info"
                   disabled={storageLoading}
@@ -657,7 +802,7 @@ export default function HomeScreen() {
                   <ThemedText style={styles.storageText}>{storagePercentRounded}% Used of {formatSize(storageTotal)}</ThemedText>
                   <TouchableOpacity
                     style={{ padding: 6 }}
-                    onPress={() => fetchStorage('/', true)}
+                    onPress={() => fetchStorage('/', true, true)}
                     accessibilityLabel="Refresh storage info"
                     disabled={storageLoading}
                   >
@@ -942,14 +1087,27 @@ export default function HomeScreen() {
                 {/* Breadcrumb / Path & Controls */}
                 <View style={styles.headerBottom}>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                    {currentDir !== "/home/swap/aaxion/" && (
+                    {currentDir !== homeDir && (
                       <TouchableOpacity onPress={goBack} style={{ marginRight: 8 }}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
                       </TouchableOpacity>
                     )}
                     <ThemedText type="subtitle" numberOfLines={1} style={{ flex: 1 }}>
-                      {getDirName(currentDir) || 'Home'}
+                      {currentDir === homeDir ? 'Home' : (getDirName(currentDir) || 'Home')}
                     </ThemedText>
+
+                    {/* Home view mode radios (only show on root/home) */}
+                    {currentDir === homeDir && (
+                      <View style={{ flexDirection: 'row', marginLeft: 12 }}>
+                        <TouchableOpacity onPress={() => setHomeViewMode('important')} style={[styles.filterChip, { paddingHorizontal: 10, paddingVertical: 6, marginRight: 8, backgroundColor: homeViewMode === 'important' ? theme.tint : theme.surface, borderColor: homeViewMode === 'important' ? theme.tint : theme.border }]}>
+                          <ThemedText style={{ fontSize: 12, fontWeight: '600', color: homeViewMode === 'important' ? '#FFF' : theme.text }}>Important</ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setHomeViewMode('all')} style={[styles.filterChip, { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: homeViewMode === 'all' ? theme.tint : theme.surface, borderColor: homeViewMode === 'all' ? theme.tint : theme.border }]}>
+                          <ThemedText style={{ fontSize: 12, fontWeight: '600', color: homeViewMode === 'all' ? '#FFF' : theme.text }}>All</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
                   </View>
 
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 16 }}>
@@ -999,10 +1157,29 @@ export default function HomeScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.tint} colors={[theme.tint]} progressBackgroundColor={theme.surface} />
                   }
                   ListEmptyComponent={
-                    <View style={styles.centerState}>
-                      <MaterialCommunityIcons name="folder-open-outline" size={64} color={theme.icon} style={{ opacity: 0.3 }} />
-                      <ThemedText style={{ marginTop: 12, opacity: 0.5 }}>No files found</ThemedText>
-                    </View>
+                    storageError && showOfflineNotice ? (
+                      <View style={styles.centerState}>
+                        <MaterialCommunityIcons name="wifi-off" size={64} color={theme.icon} style={{ opacity: 0.3 }} />
+                        <ThemedText style={{ marginTop: 12, opacity: 0.5 }}>Not connected</ThemedText>
+                        <ThemedText style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>{(storageError as any)?.message ?? String(storageError)}</ThemedText>
+                        <View style={{ flexDirection: 'row', marginTop: 16 }}>
+                          <TouchableOpacity
+                            onPress={async () => { setShowOfflineNotice(true); await fetchStorage('/', true, true); try { await fetchFiles(currentDir, true); } catch { /* ignore */ } }}
+                            style={{ padding: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: theme.border, marginRight: 8 }}
+                          >
+                            <ThemedText>Retry</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => setShowOfflineNotice(false)} style={{ padding: 10, paddingHorizontal: 16 }}>
+                            <ThemedText style={{ color: theme.error }}>Close</ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.centerState}>
+                        <MaterialCommunityIcons name="folder-open-outline" size={64} color={theme.icon} style={{ opacity: 0.3 }} />
+                        <ThemedText style={{ marginTop: 12, opacity: 0.5 }}>No files found</ThemedText>
+                      </View>
+                    )
                   }
                 />
               )}
@@ -1045,6 +1222,52 @@ export default function HomeScreen() {
                     </View>
                   )}
                 </Animated.View>
+              )}
+
+              {/* Dev debug overlay (dev only) */}
+              {__DEV__ && (
+                <>
+                  <TouchableOpacity style={styles.debugFab} onPress={() => setDebugOverlayVisible(v => !v)}>
+                    <MaterialCommunityIcons name="bug" size={20} color="#FFF" />
+                  </TouchableOpacity>
+
+                  {debugOverlayVisible && (
+                    <View style={[styles.debugPanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <ThemedText type="defaultSemiBold">fetchStorage Traces</ThemedText>
+                        <View style={{ flexDirection: 'row' }}>
+                          <TouchableOpacity onPress={copyFetchTracesToClipboard} style={{ padding: 8 }}>
+                            <ThemedText>Copy</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => setDebugOverlayVisible(false)} style={{ padding: 8 }}>
+                            <ThemedText style={{ color: theme.error }}>Close</ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      <ScrollView style={{ maxHeight: 220, marginTop: 8 }}>
+                        {fetchStorageTraceRef.current.length === 0 ? (
+                          <ThemedText style={{ marginTop: 8, opacity: 0.7 }}>No traces recorded yet</ThemedText>
+                        ) : fetchStorageTraceRef.current.map((t, i) => (
+                          <View key={i} style={{ marginTop: 8 }}>
+                            <ThemedText style={{ fontSize: 12 }}>{new Date(t.ts).toLocaleTimeString()} (user:{t.userInitiated ? 'Y' : 'N'} force:{t.force ? 'Y' : 'N'})</ThemedText>
+                            <ThemedText style={{ fontSize: 11, opacity: 0.85, marginTop: 6 }}>{t.stack}</ThemedText>
+                          </View>
+                        ))}
+                      </ScrollView>
+
+                      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+                        <TouchableOpacity onPress={async () => { setShowOfflineNotice(true); await fetchStorage('/', true, true); try { await fetchFiles(currentDir, true); } catch { /* ignore */ } }} style={{ padding: 8 }}>
+                          <ThemedText>Force Retry</ThemedText>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={() => { fetchStorageTraceRef.current = []; }} style={{ padding: 8 }}>
+                          <ThemedText style={{ color: theme.error }}>Clear</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </>
               )}
 
               {/* Floating Bottom Action Bar */}
@@ -1163,15 +1386,53 @@ export default function HomeScreen() {
                 autoCorrect={false}
               />
 
+              <ThemedText style={{ opacity: 0.7, marginTop: 8, fontSize: 12 }}>Detected root: {serverRoot}</ThemedText>
+
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 18 }}>
                 <TouchableOpacity onPress={() => setSettingsVisible(false)} style={{ padding: 10 }}>
                   <ThemedText style={{ color: theme.error }}>Cancel</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={async () => {
                   setTestingEndpoint(true);
-                  const ok = await testApiBaseUrl(apiEndpointInput);
-                  setTestingEndpoint(false);
-                  Alert.alert(ok ? 'Success' : 'Failed', ok ? 'Endpoint reachable' : 'Failed to reach endpoint');
+                  try {
+                    // First check reachability
+                    const res = await testApiBaseUrl(apiEndpointInput);
+                    if (!res.ok) {
+                      const msg = res.error ? res.error : (res.status ? `HTTP ${res.status}` : 'Unknown error');
+                      Alert.alert('Failed', `Failed to reach endpoint: ${msg}\n\nTips: make sure the device/emulator can reach the host IP, the server is bound to 0.0.0.0, and for Android standalone you may need to rebuild after enabling cleartext.`);
+                      console.warn('[config] testApiBaseUrl failure details:', res);
+                      return;
+                    }
+
+                    // Fetch root path directly from the supplied URL (do not persist yet)
+                    const testUrl = apiEndpointInput.endsWith('/') ? `${apiEndpointInput}api/system/get-root-path` : `${apiEndpointInput}/api/system/get-root-path`;
+                    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                    const id = controller ? setTimeout(() => controller.abort(), 5000) : null;
+                    const r = await fetch(testUrl, { method: 'GET', signal: controller ? (controller.signal as any) : undefined });
+                    if (id) clearTimeout(id);
+                    if (!r.ok) {
+                      Alert.alert('Success', `Endpoint reachable (HTTP ${r.status}) but failed to fetch root path`);
+                      return;
+                    }
+                    let json: any = null;
+                    try { json = await r.json(); } catch { }
+                    const root = json && (json.root_path || json.root);
+                    if (root) {
+                      // Use the root immediately for UI feedback (not persisted until Save)
+                      setServerRoot(root);
+                      Alert.alert('Success', `Endpoint reachable. Server root: ${root}`);
+                    } else {
+                      Alert.alert('Success', `Endpoint reachable (HTTP ${r.status}) but response did not include 'root_path'`);
+                    }
+                  } catch (err: any) {
+                    if (err && typeof err.name === 'string' && err.name === 'AbortError') {
+                      Alert.alert('Failed', 'Request timed out (5s)');
+                    } else {
+                      Alert.alert('Failed', `Network error: ${(err && err.message) ? err.message : String(err)}`);
+                    }
+                  } finally {
+                    setTestingEndpoint(false);
+                  }
                 }} style={{ padding: 10, paddingHorizontal: 18, marginLeft: 8 }}>
                   <ThemedText>{testingEndpoint ? 'Testing...' : 'Test'}</ThemedText>
                 </TouchableOpacity>
@@ -1179,8 +1440,16 @@ export default function HomeScreen() {
                   setSavingEndpoint(true);
                   try {
                     await setApiBaseUrl(apiEndpointInput);
-                    Alert.alert('Saved', 'API endpoint updated. Pull-to-refresh or tap refresh to load data from the new endpoint.');
-                    // Do not automatically refetch here to avoid retry loops; user can refresh manually.
+                    // After saving the base URL, fetch storage/root info immediately and set it in state
+                    try {
+                      await fetchStorage('/', true, true);
+                      Alert.alert('Saved', 'API endpoint updated and root path fetched. Pull-to-refresh or tap refresh to load data from the new endpoint.');
+                    } catch (err) {
+                      // Saved but failed to fetch root
+                      Alert.alert('Saved', 'API endpoint updated, but failed to fetch root path. Pull-to-refresh to retry.');
+                      console.warn('[config] saved but fetchStorage failed', err);
+                    }
+
                     setSettingsVisible(false);
                   } catch {
                     Alert.alert('Error', 'Failed to save endpoint');
@@ -1406,4 +1675,29 @@ const styles = StyleSheet.create({
   modalCard: { width: '100%', maxWidth: 340, borderRadius: 20, padding: 24 },
   modalInput: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
   closePreviewBtn: { position: 'absolute', top: 50, right: 20, zIndex: 999, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+
+  // Dev debug styles
+  debugFab: {
+    position: 'absolute',
+    right: 18,
+    bottom: 120,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ff3b30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  debugPanel: {
+    position: 'absolute',
+    right: 18,
+    bottom: 180,
+    width: 320,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    zIndex: 1000,
+    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 10 }, android: { elevation: 10 } })
+  },
 });

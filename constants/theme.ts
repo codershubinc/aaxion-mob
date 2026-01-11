@@ -28,7 +28,7 @@ export const Colors = {
     surface: '#1E293B', // Slate 800
     border: '#334155', // Slate 700
     tint: tintColorDark,
-    icon: '#94A3B8', // Slate 400
+    icon: '#474b52ff', // Slate 400
     tabIconDefault: '#475569', // Slate 600
     tabIconSelected: tintColorDark,
     success: '#34D399',

@@ -10,7 +10,7 @@ export const formatSize = (size: number) => {
 };
 
 export const getDirName = (path: string) => {
-    if (path === "/home/swap/aaxion/") return "Home";
+    // Return the last path segment for most folders. UI will show 'Home' for the server root explicitly.
     const parts = path.split('/').filter(Boolean);
     return parts[parts.length - 1] || "Root";
 };
