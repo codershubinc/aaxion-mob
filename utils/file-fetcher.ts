@@ -4,6 +4,9 @@ import { getApiBaseUrl } from './config';
 
 
 // --- CORE FUNCTIONS ---
+export const deleteFile = async (path: string) => {
+    return
+}
 
 export const fetchFileList = async (dir: string) => {
     try {
