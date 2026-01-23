@@ -58,34 +58,34 @@ To get a local copy up and running, follow these steps.
 
 ### Installation
 
-1.  Clone the repository
+1. Clone the repository
 
-    ```bash
-    git clone https://github.com/your-username/aaxion-mobile.git
-    cd aaxion-mobile
-    ```
+   ```bash
+   git clone https://github.com/your-username/aaxion-mobile.git
+   cd aaxion-mobile
+   ```
 
-2.  ⚠️ **Switch to the Development Branch**
+2. ⚠️ **Switch to the Development Branch**
 
-    ```bash
-    git checkout feat/modularization
-    ```
+   ```bash
+   git checkout feat/modularization
+   ```
 
-3.  Install dependencies
+3. Install dependencies
 
-    ```bash
-    npm install
-    # or
-    yarn install
-    ```
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
 
-4.  Start the development server
+4. Start the development server
 
-    ```bash
-    npx expo start
-    ```
+   ```bash
+   npx expo start
+   ```
 
-5.  Scan the QR code with the Expo Go app (Android/iOS).
+5. Scan the QR code with the Expo Go app (Android/iOS).
 
 ## 📂 Project Structure (Modularized)
 
@@ -114,11 +114,11 @@ src/
 
 Contributions are welcome, but please open an issue first to discuss what you would like to change, as the codebase is currently in flux.
 
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feat/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feat/AmazingFeature`)
-5.  Open a Pull Request to `feat/modularization`
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feat/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feat/AmazingFeature`)
+5. Open a Pull Request to `feat/modularization`
 
 ## 📝 License
 
