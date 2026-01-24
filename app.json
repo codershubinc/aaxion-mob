@@ -4,15 +4,21 @@
     "slug": "aaxion-mob",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/images/icons/Gemini_Generated_Image_hpml0shpml0shpml-removebg-preview.png",
     "scheme": "aaxion",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.aaxion"
+      "bundleIdentifier": "com.codershubinc.aaxion"
     },
     "android": {
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_MULTICAST_STATE",
+        "NEARBY_WIFI_DEVICES"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/icons/Gemini_Generated_Image_hpml0shpml0shpml-removebg-preview.png",
