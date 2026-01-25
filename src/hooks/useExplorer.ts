@@ -1,4 +1,4 @@
-import { API_ENDPOINTS } from '@/constants/apiConstants';
+import { API_ENDPOINTS, API_URLS } from '@/constants/apiConstants';
 import { fetcher } from '@/utils/requestUtil';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -21,11 +21,20 @@ export const useFileExplorer = ({ currentPath, onNavigate, onRootDetected }: Use
     const [loading, setLoading] = useState(false);
     const [rootPath, setRootPath] = useState<string | null>(null);
     const [currentDirName, setCurrentDirName] = useState<string>("");
+    const [baseUri, setBaseUri] = useState<string>("");
+    const [token, setToken] = useState<string>("");
 
     const loadFiles = useCallback(async () => {
         setLoading(true);
         try {
             let queryPath = currentPath;
+            if (baseUri === "" || token === "") {
+                const storedBaseUri = await API_URLS.getApiBaseUrl();
+                const storedToken = await API_URLS.getApiToken();
+                if (storedBaseUri) setBaseUri(storedBaseUri);
+                if (storedToken) setToken(storedToken);
+
+            }
 
             // 1. Root Path Logic
             // If we don't know the root yet, or if we are at generic "/", fetch system root first.
@@ -77,6 +86,8 @@ export const useFileExplorer = ({ currentPath, onNavigate, onRootDetected }: Use
         loading,
         rootPath,
         refresh: loadFiles,
-        currentDirName
+        currentDirName,
+        baseUri,
+        token
     };
 };

@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { api } from '@/services/api';
+import { API_ENDPOINTS } from '@/constants/apiConstants';
 import { fetcher } from '@/utils/requestUtil';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { THEME } from './styles';
 
 // --- Types ---
@@ -61,9 +61,7 @@ const Storage = () => {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const { baseUrl, token } = await api.getAll();
-            if (!baseUrl) return;
-            const res = await fetcher(`${baseUrl}/api/system/storage`, "GET", token || undefined);
+            const res = await fetcher(API_ENDPOINTS.SYSTEM.STORAGE, "GET");
             if (res) setData(res);
         } catch (e) {
             console.error("Storage fetch failed", e);
