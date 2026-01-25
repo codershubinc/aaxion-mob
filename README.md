@@ -1,50 +1,125 @@
-# Welcome to your Expo app 👋
+# 📂 Aaxion (Mobile)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+🚧 **PROJECT STATUS: UNDER ACTIVE DEVELOPMENT** 🚧
 
-## Get started
+**Current Phase:** Modularization & Performance Optimization  
+**Live Preview:** 🔴 Not Available yet
 
-1. Install dependencies
+## ⚠️ Important Note for Developers
 
-   ```bash
-   npm install
-   ```
+The main branch may be unstable or outdated. All active development is currently happening on the `feat/modularization` branch.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Please refer to that branch for the latest features, including the new file structure and chunked upload logic.
 
 ```bash
-npm run reset-project
+git checkout feat/modularization
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 📖 About The Project
 
-## Learn more
+Aaxion is a high-performance mobile file explorer and storage management client. It allows users to browse, upload, and manage files on their self-hosted servers with native-like performance.
 
-To learn more about developing your project with Expo, look at the following resources:
+The project is currently undergoing a major refactor to improve code modularity and upload speeds using native filesystem bindings.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## ✨ Key Features (Implemented)
 
-## Join the community
+- **📂 File Explorer:** Browse directories with nested navigation.
+- **🎨 UI Modes:** Toggle between List View and Grid View (with thumbnails).
+- **🚀 Smart Uploads:**
+  - **Native Multipart:** Blazing fast uploads (30MB/s+) for local/small files.
+  - **Chunked Uploads:** Reliable uploads for large files (>90MB) to bypass Tunnel/Proxy limits.
+- **📊 Real-time Progress:** Floating toast notification with transfer speed (MB/s) and percentage.
+- **🌑 Dark Mode:** Fully themed dark interface.
 
-Join our community of developers creating universal apps.
+## 🔜 Roadmap (Coming Soon)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [ ] Delete & Rename functionality.
+- [ ] Download files to local storage.
+- [ ] Video Streaming.
+- [ ] Image Viewer.
+
+## 🛠️ Tech Stack
+
+- **Framework:** React Native / Expo (Managed Workflow)
+- **Language:** TypeScript
+- **Networking:** Native fetch & FileSystem.uploadAsync
+- **Navigation:** Expo Router / React Navigation
+- **Icons:** Ionicons (@expo/vector-icons)
+
+## 🚀 Getting Started
+
+To get a local copy up and running, follow these steps.
+
+### Prerequisites
+
+- Node.js (LTS)
+- npm or yarn
+- Expo Go app on your physical device (recommended for testing uploads).
+
+### Installation
+
+1.  Clone the repository
+
+    ```bash
+    git clone https://github.com/your-username/aaxion-mobile.git
+    cd aaxion-mobile
+    ```
+
+2.  ⚠️ **Switch to the Development Branch**
+
+    ```bash
+    git checkout feat/modularization
+    ```
+
+3.  Install dependencies
+
+    ```bash
+    npm install
+    # or
+    yarn install
+    ```
+
+4.  Start the development server
+
+    ```bash
+    npx expo start
+    ```
+
+5.  Scan the QR code with the Expo Go app (Android/iOS).
+
+## 📂 Project Structure (Modularized)
+
+We are moving towards a feature-based architecture:
+
+```text
+src/
+├── components/
+│   ├── explorer/       # File Explorer, Thumbnails, Floating Menu, Upload Toast
+│   ├── sidebar/        # Navigation Sidebar
+│   └── ...
+├── constants/
+│   ├── apiConstants.ts # Endpoints config
+│   └── theme.ts        # Colors and styles
+├── hooks/
+│   ├── useExplorer.ts  # Logic for fetching files & sorting
+│   └── useFileExplorer.ts # File list state management
+├── utils/
+│   ├── requestUtil.ts  # Generic fetch wrapper
+│   └── uploadUtil.ts   # Smart Hybrid Upload Logic (Chunked + Multipart)
+└── screens/
+    └── HomeScreen.tsx  # Main Entry
+```
+
+## 🤝 Contributing
+
+Contributions are welcome, but please open an issue first to discuss what you would like to change, as the codebase is currently in flux.
+
+1.  Fork the Project
+2.  Create your Feature Branch (`git checkout -b feat/AmazingFeature`)
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4.  Push to the Branch (`git push origin feat/AmazingFeature`)
+5.  Open a Pull Request to `feat/modularization`
+
+## 📝 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
