@@ -1,23 +1,18 @@
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 export const api = {
-  login: async (email: string, password: string): Promise<User> => {
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ id: '1', name: 'Demo User', email });
-      }, 1000);
-    });
+  getEndpoint: async () => {
+    const baseUrl = await AsyncStorage.getItem('apiBaseUrl');
+    return baseUrl;
   },
-  fetchData: async (): Promise<string[]> => {
-     return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(['Board 1', 'Board 2', 'Board 3']);
-      }, 1000);
-    });
+  getToken: async () => {
+    const token = await AsyncStorage.getItem('userToken');
+    return token
+  },
+  getAll: async () => {
+    const baseUrl = await AsyncStorage.getItem('apiBaseUrl');
+    const token = await AsyncStorage.getItem('userToken');
+    return { baseUrl, token }
   }
 };
