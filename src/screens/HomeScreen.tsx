@@ -22,6 +22,7 @@ const HomeScreen = () => {
     // State: The actual root path of the server (e.g. /home/user)
     const [serverRoot, setServerRoot] = useState<string | null>(null);
 
+
     // --- Helper: Go up one level or exit ---
     const handleNavigateBack = useCallback(() => {
         setExplorerDir((currentPath) => {
@@ -95,6 +96,7 @@ const HomeScreen = () => {
                         // Capture the root path when Explorer loads it
                         onRootDetected={(root) => setServerRoot(root)}
                         isMobile={isMobile}
+                        onGoHome={() => setExplorerDir(null as any)}
                     />
                 )}
             </View>
