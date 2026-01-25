@@ -1,5 +1,5 @@
+import { API_ENDPOINTS } from '@/constants/apiConstants';
 import { Colors } from '@/constants/theme';
-import { api } from '@/services/api';
 import { fetcher } from '@/utils/requestUtil';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -12,9 +12,9 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import StorageTile from './StorageTile'; // <--- Import Component
+import StorageTile from './StorageTile';
 
-// --- Types ---
+
 interface StorageDevice {
     device?: string;
     mount_point?: string;
@@ -40,9 +40,9 @@ const StorageDashboard = ({ onSelectDirectory }: StorageDashboardProps) => {
 
     const loadData = async () => {
         try {
-            const { baseUrl, token } = await api.getAll();
-            if (!baseUrl) return;
-            const res = await fetcher(`${baseUrl}/api/system/storage`, "GET", token || undefined);
+
+            const res = await fetcher(API_ENDPOINTS.SYSTEM.STORAGE, "GET");
+
             if (res) setData(res);
         } catch (e) {
             console.error("Dashboard fetch error:", e);
@@ -78,6 +78,9 @@ const StorageDashboard = ({ onSelectDirectory }: StorageDashboardProps) => {
     return (
         <View style={styles.container}>
             <Text style={styles.sectionTitle}>Storage Overview</Text>
+            <TouchableOpacity onPress={loadData} style={styles.retryBtn}>
+                <Text style={{ color: Colors.dark.tint }}>Refresh</Text>
+            </TouchableOpacity>
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}

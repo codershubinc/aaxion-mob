@@ -19,15 +19,22 @@ const HomeScreen = () => {
     // State: Current Path (null = Dashboard)
     const [explorerDir, setExplorerDir] = useState<string | null>(null);
 
+    // State: The actual root path of the server (e.g. /home/user)
+    const [serverRoot, setServerRoot] = useState<string | null>(null);
+
     // --- Helper: Go up one level or exit ---
     const handleNavigateBack = useCallback(() => {
         setExplorerDir((currentPath) => {
             if (!currentPath) return null;
 
-            // 1. If we are at root ('/'), exit to dashboard
-            if (currentPath === '/') return null;
+            // 1. EXIT CONDITIONS:
+            // If current path is generic root '/' OR 
+            // If current path matches the known Server Root
+            if (currentPath === '/' || (serverRoot && currentPath === serverRoot)) {
+                return null; // Go back to Dashboard
+            }
 
-            // 2. Remove trailing slash if present (except for root)
+            // 2. Remove trailing slash
             const cleanPath = currentPath.endsWith('/') && currentPath.length > 1
                 ? currentPath.slice(0, -1)
                 : currentPath;
@@ -35,19 +42,16 @@ const HomeScreen = () => {
             // 3. Find parent directory
             const lastSlashIndex = cleanPath.lastIndexOf('/');
 
-            // If no slash found (rare) or it's top level, return null to exit
+            // Safety check
             if (lastSlashIndex === -1) return null;
 
             // 4. Calculate new path
-            // If the slash is at index 0 (e.g. "/etc"), the parent is "/"
             const newPath = lastSlashIndex === 0 ? '/' : cleanPath.substring(0, lastSlashIndex);
 
-            // Check if we hit the "exit" condition (optional logic depending on mount points)
-            // For now, if newPath is empty, we go null
             return newPath || null;
         });
-        return true; // Tells BackHandler we handled the event
-    }, []);
+        return true;
+    }, [serverRoot]); // Dependent on serverRoot
 
     // --- Handle Hardware Back Button (Android) ---
     useEffect(() => {
@@ -88,6 +92,8 @@ const HomeScreen = () => {
                         currentPath={explorerDir}
                         onBack={handleNavigateBack}
                         onNavigate={(newPath: any) => setExplorerDir(newPath)}
+                        // Capture the root path when Explorer loads it
+                        onRootDetected={(root) => setServerRoot(root)}
                         isMobile={isMobile}
                     />
                 )}

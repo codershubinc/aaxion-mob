@@ -31,22 +31,16 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
             const response = await fetcher(
                 uri,
                 "POST",
-                undefined,
                 {
                     username,
                     password
                 },
-                undefined
-                ,
-                {
-                    'Content-Type': 'application/json'
-                }
             )
             const token = response.token;
 
             if (token) {
                 await AsyncStorage.setItem('userToken', token);
-                await AsyncStorage.setItem('apiBaseUrl', baseUrl);
+                await AsyncStorage.setItem('server.local_url', baseUrl);
                 onLogin(token);
             } else {
                 throw new Error('No token received');
