@@ -33,7 +33,7 @@ export default function Index() {
   }
 
   return userToken ? (
-    <HomeScreen onLogout={() => setUserToken(null)} />
+    <HomeScreen />
   ) : (
     <AuthScreen onLogin={(token) => setUserToken(token)} />
   );

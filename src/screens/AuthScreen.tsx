@@ -1,10 +1,11 @@
+import { Button } from '@/components/ui/Button';
 import { Colors } from '@/constants/theme';
 import { fetcher } from '@/utils/requestUtil';
-import { useAaxionDiscovery } from '@/utils/searchServer';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface AuthScreenProps {
     onLogin: (token: string) => void;
@@ -14,25 +15,17 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const { servers, isScanning, scan } = useAaxionDiscovery();
-
-    useEffect(() => {
-        scan();
-    }, []);
-
-    const selectedServer = servers.length > 0 ? servers[0] : null;
+    const [ip, setIp] = useState('10.145.140.44');
+    const insets = useSafeAreaInsets();
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleLogin = async () => {
         try {
             if (!username || !password) return Alert.alert('Error', 'Please enter both username and password');
 
-            if (!selectedServer) {
-                return Alert.alert('Error', 'No server found. Please ensure you are on the same network.');
-            }
+            setIsLoading(true);
 
-            const ip = selectedServer.ipAddresses[0];
-            const port = selectedServer.port;
-            const baseUrl = `http://${ip}:${port}`;
+            const baseUrl = `http://${ip}:8080`;
             const uri = `${baseUrl}/auth/login`;
 
             const response = await fetcher(
@@ -64,6 +57,8 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
             console.log("Err on login ::", error);
 
             return;
+        } finally {
+            setIsLoading(false);
         }
 
     };
@@ -75,6 +70,15 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
         >
             <ScrollView contentContainerStyle={styles.scrollContainer}>
                 <View style={styles.container}>
+                    <View style={[styles.topRightIpInput, { top: Math.max(insets.top, 10) + 10 }]}>
+                        <TextInput
+                            style={styles.smallInput}
+                            placeholder="Server IP"
+                            placeholderTextColor="#666"
+                            value={ip}
+                            onChangeText={setIp}
+                        />
+                    </View>
                     <Image
                         source={require('@/assets/images/icons/Gemini_Generated_Image_hpml0shpml0shpml-removebg-preview.png')}
                         style={styles.logo}
@@ -119,21 +123,10 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
                     </View>
 
                     <View style={styles.buttonContainer}>
-                        {selectedServer ? (
-                            <Text style={styles.serverText}>Connected to: {selectedServer.name}</Text>
-                        ) : isScanning ? (
-                            <View style={styles.scanningContainer}>
-                                <ActivityIndicator size="small" color={Colors.dark.tint} />
-                                <Text style={styles.scanningText}>Searching for server...</Text>
-                            </View>
-                        ) : (
-                            <Button title="Retry Scan" onPress={scan} color={Colors.dark.tint} />
-                        )}
                         <Button
                             title="Login"
                             onPress={handleLogin}
-                            color={Colors.dark.tint}
-                            disabled={!selectedServer}
+                            loading={isLoading}
                         />
                     </View>
                 </View>
@@ -224,6 +217,22 @@ const styles = StyleSheet.create({
     buttonContainer: {
         marginTop: 20,
         width: '100%',
+    },
+    topRightIpInput: {
+        position: 'absolute',
+        right: 20,
+        zIndex: 1,
+        width: 120, // Small width
+    },
+    smallInput: {
+        height: 40,
+        borderWidth: 1,
+        borderColor: Colors.dark.border,
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        color: Colors.dark.text,
+        backgroundColor: Colors.dark.surface,
+        fontSize: 15,
     }
 });
 
