@@ -20,6 +20,15 @@ export default function Index() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('userToken');
+      setUserToken(null);
+    } catch (e) {
+      console.error('Failed to logout', e);
+    }
+  };
+
   useEffect(() => {
     checkToken();
   }, []);
@@ -33,7 +42,7 @@ export default function Index() {
   }
 
   return userToken ? (
-    <HomeScreen />
+    <HomeScreen onLogout={handleLogout} />
   ) : (
     <AuthScreen onLogin={(token) => setUserToken(token)} />
   );

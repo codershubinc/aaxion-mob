@@ -31,6 +31,7 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
             const response = await fetcher(
                 uri,
                 "POST",
+                undefined,
                 {
                     username,
                     password

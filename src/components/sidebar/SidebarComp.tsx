@@ -10,38 +10,43 @@ import Storage from './storage';
 import { sidebarStyles as styles, THEME } from './styles';
 import SidebarIpInput from './updateIp';
 
-export const SidebarContent = () => {
+interface SidebarContentProps {
+    onLogout: () => void;
+}
+
+export const SidebarContent = ({ onLogout }: SidebarContentProps) => {
     const insets = useSafeAreaInsets();
 
     return (
         <View style={[styles.sidebarInner, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
 
-            {/* --- TOP SECTION --- */}
-            <View style={{ flex: 1 }}>
-                {/* Logo */}
-                <View style={styles.logoContainer}>
-                    <Text style={styles.logo}>Aaxion</Text>
-                </View>
+            {/* Logo */}
+            <View style={styles.logoContainer}>
+                <Text style={styles.logo}>Aaxion</Text>
+            </View>
 
-                {/* Main Navigation */}
-                <View style={styles.menuContainer}>
-                    <SidebarIpInput />
+            {/* Main Navigation */}
+            <View style={styles.menuContainer}>
+                <SidebarIpInput />
 
-                    <Pressable style={styles.menuItem}>
-                        <Ionicons name="folder-open-outline" size={22} color={THEME.textDim} />
-                        <Text style={{ marginLeft: 15, fontSize: 16, color: THEME.text, fontWeight: '500' }}>Files</Text>
-                    </Pressable>
-                </View>
+                <Pressable style={styles.menuItem}>
+                    <Ionicons name="folder-open-outline" size={22} color={THEME.textDim} />
+                    <Text style={{ marginLeft: 15, fontSize: 16, color: THEME.text, fontWeight: '500' }}>Files</Text>
+                </Pressable>
             </View>
 
             {/* --- BOTTOM SECTION --- */}
-            {/* marginTop: 'auto' pushes this entire block to the bottom */}
-            <View style={{ marginTop: 'auto', gap: 10 }}>
+            <View style={{ gap: 10 }}>
                 <Storage />
                 {/* Settings / Footer Menu */}
-                <View style={[styles.menuContainer, { marginTop: 10 }]}>
+                <View style={{ marginTop: 10 }}>
                     <Pressable style={styles.menuItem}>
                         <Ionicons name="settings-outline" size={22} color={THEME.textDim} />
+                        <Text style={{ marginLeft: 15, fontSize: 16, color: THEME.text, fontWeight: '500' }}>Settings</Text>
+                    </Pressable>
+                    <Pressable style={styles.menuItem} onPress={onLogout}>
+                        <Ionicons name="log-out-outline" size={22} color="#EF4444" />
+                        <Text style={{ marginLeft: 15, fontSize: 16, color: "#EF4444", fontWeight: '500' }}>Logout</Text>
                     </Pressable>
                 </View>
 

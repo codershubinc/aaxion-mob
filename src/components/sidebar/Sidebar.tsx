@@ -17,9 +17,10 @@ import { BREAKPOINT, SIDEBAR_WIDTH, sidebarStyles as styles, THEME } from "./sty
 
 interface Props {
     children: React.ReactNode;
+    onLogout: () => void;
 }
 
-const Sidebar = ({ children }: Props) => {
+const Sidebar = ({ children, onLogout }: Props) => {
     const { width } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const isLargeScreen = width >= BREAKPOINT;
@@ -58,7 +59,7 @@ const Sidebar = ({ children }: Props) => {
             {/* Desktop Sidebar */}
             {isLargeScreen && (
                 <View style={[styles.sidebarDesktop, { width: SIDEBAR_WIDTH }]}>
-                    <SidebarContent />
+                    <SidebarContent onLogout={onLogout} />
                 </View>
             )}
 
@@ -102,7 +103,7 @@ const Sidebar = ({ children }: Props) => {
                             { transform: [{ translateX: drawerTranslateX }] }
                         ]}
                     >
-                        <SidebarContent />
+                        <SidebarContent onLogout={onLogout} />
                     </Animated.View>
                 </>
             )}

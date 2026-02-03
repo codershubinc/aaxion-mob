@@ -11,7 +11,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const HomeScreen = () => {
+interface HomeScreenProps {
+  onLogout: () => void;
+}
+
+const HomeScreen = ({ onLogout }: HomeScreenProps) => {
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
@@ -68,7 +72,7 @@ const HomeScreen = () => {
     }, [explorerDir, handleNavigateBack]);
 
     return (
-        <Sidebar>
+        <Sidebar onLogout={onLogout}>
             <View
                 style={[
                     styles.contentContainer,
